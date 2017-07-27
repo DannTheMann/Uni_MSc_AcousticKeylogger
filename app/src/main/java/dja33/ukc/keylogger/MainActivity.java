@@ -116,6 +116,7 @@ public class MainActivity extends AppCompatActivity {
 
         // subject to change values
         private int progress;
+        private final int AMPLITUDE_THRESHOLD = 1000;
         private double amplitude;
 
         public UpdateProgress(SoundMeter sm, String key) {
@@ -140,18 +141,16 @@ public class MainActivity extends AppCompatActivity {
                     progress = (int) ((amplitude / 32768) * 100); // Value out of 100
                     double[] frequencySweep = null;
 
-                    if(amplitude > 5000) {
+                    if(amplitude > AMPLITUDE_THRESHOLD) {
                         frequencySweep = soundMeter.getFrequencyDomain(); // Perform FFT
                         //                    System.out.println("Amplitude: " + amp);
                         //                    System.out.println("Amplitude accelerometerSensor %: " + ((amp/32768)*100));
-
-                        samples[(index + 1) % 1024] = amplitude;
 
                         System.out.print(">");
                         for (double s : frequencySweep) {
                             if (s < 0)
                                 continue;
-                            DecimalFormat df = new DecimalFormat("#.##");
+                            DecimalFormat df = new DecimalFormat("#.###");
                             s = Double.valueOf(df.format(s));
                             System.out.print(s + "|");
                         }
@@ -174,7 +173,7 @@ public class MainActivity extends AppCompatActivity {
 
                     long end = System.currentTimeMillis();
 
-                    System.out.println("Took : " + ((end - start) / 1000) + " >>> Amp: " + amplitude);
+                    //System.out.println("Took : " + ((end - start) / 1000) + " >>> Amp: " + amplitude);
                 }
 
             }catch(InterruptedException e) {
@@ -191,7 +190,7 @@ public class MainActivity extends AppCompatActivity {
 
             average /= samples.length;
 
-            System.out.println("Average: " + average + " | Over " + samples.length + " samples.");
+            //System.out.println("Average: " + average + " | Over " + samples.length + " samples.");
 
             //SampleHandler.getHandler().addAmplitudeSample(getActiveCharacter(), average);
 

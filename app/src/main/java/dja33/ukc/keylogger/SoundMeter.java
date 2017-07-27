@@ -4,6 +4,8 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 
+import org.jtransforms.fft.DoubleFFT_1D;
+
 /**
  * Class borrows functionality from - https://stackoverflow.com/questions/38033068/android-audiorecord-wont-initialize
  */
@@ -15,8 +17,19 @@ public class SoundMeter {
     private static final int RECORD_PCM = AudioFormat.ENCODING_PCM_16BIT;
 
     private AudioRecord ar = null;
-    private int minSize = 256; // Must be a power of 2, used for computing the scale of the frequency domain and amplitude
+    private final int minSize; // Must be a power of 2, used for computing the scale of the frequency domain and amplitude
     private boolean running;
+    private double[] frequencySweep;
+
+    public SoundMeter(){
+        int tempMinSize = AudioRecord.getMinBufferSize(RECORD_SAMPLE_RATE, RECORD_FORMAT, RECORD_PCM);
+        if(tempMinSize < 256) {
+            minSize = 256;
+        }else{
+            minSize = tempMinSize;
+        }
+        frequencySweep = new double[minSize];
+    }
 
     public boolean start() {
         //minSize = AudioRecord.getMinBufferSize(RECORD_SAMPLE_RATE, RECORD_FORMAT, RECORD_PCM);
@@ -64,19 +77,24 @@ public class SoundMeter {
      */
     public double[] getFrequencyDomain(){
 
+        frequencySweep = new double[minSize];
+
         short[] buffer = new short[minSize];
         // reads in a continous set of samples into the buffer 
         int bufferReadResult = ar.read(buffer, 0, minSize);
 
-        double[] toTransform = new double[minSize];
-
         for (int i = 0; i < minSize && i < bufferReadResult; i++) {
-            toTransform[i] = (double) buffer[i] / 32768.0; // signed 16bit
+            frequencySweep[i] = (double) buffer[i] / 32768.0; // signed 16bit
         }
 
-        return fourierTransform(toTransform, true);
+        DoubleFFT_1D fft = new DoubleFFT_1D(minSize);
+
+        fft.realForward(frequencySweep);
+
+        return frequencySweep;
     }
 
+    @Deprecated
     private double[] fourierTransform(final double[] inputReal,
                                boolean DIRECT) {
 
@@ -179,6 +197,7 @@ public class SoundMeter {
     /**
      * The reference bitreverse function.
      */
+    @Deprecated
     private int bitreverseReference(int j, int nu) {
         int j2;
         int j1 = j;
