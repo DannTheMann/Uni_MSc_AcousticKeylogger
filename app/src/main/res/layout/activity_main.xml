@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="dja33.ukc.keylogger.MainActivity">
+
+    <EditText
+        android:id="@+id/progressResult"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:ems="10"
+        android:inputType="textPersonName"
+        android:text="N/A" />
+
+    <Spinner
+        android:id="@+id/characterSelection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="146dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignLeft="@+id/trainerMode"
+        android:layout_alignStart="@+id/trainerMode"
+        android:layout_alignRight="@+id/trainerMode"
+        android:layout_alignEnd="@+id/trainerMode" />
+
+    <ToggleButton
+        android:id="@+id/trainerMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:text="ToggleButton"
+        android:textOff="Off"
+        android:textOn=" On"
+        tools:text="Train"
+        android:layout_marginRight="52dp"
+        android:layout_marginEnd="52dp"
+        android:layout_below="@+id/characterSelection"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="18dp" />
+
+    <TextView
+        android:id="@+id/traingingModeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Training Mode"
+        android:textSize="24sp"
+        android:layout_marginLeft="27dp"
+        android:layout_marginStart="27dp"
+        android:layout_alignBaseline="@+id/trainerMode"
+        android:layout_alignBottom="@+id/trainerMode"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:id="@+id/characterText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Character"
+        android:textSize="24sp"
+        android:layout_alignBottom="@+id/characterSelection"
+        android:layout_alignLeft="@+id/traingingModeText"
+        android:layout_alignStart="@+id/traingingModeText" />
+
+    <ProgressBar
+        android:id="@+id/progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/progressResult"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentStart="true" />
+
+</RelativeLayout>
