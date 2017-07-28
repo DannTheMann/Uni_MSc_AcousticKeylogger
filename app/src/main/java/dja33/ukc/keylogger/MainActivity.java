@@ -178,9 +178,9 @@ public class MainActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    long start = System.currentTimeMillis();
+                    //SoundMeter.AmplitudeSample amplitudeSample = soundMeter.sampleAudio();
 
-                    amplitude = soundMeter.getAmplitude();
+                    amplitude = soundMeter.getHighestAmplitude();
                     progress = (int) ((amplitude / 32768) * 100); // Value out of 100
                     int frequencySampleSize = 1;
 
@@ -189,7 +189,7 @@ public class MainActivity extends AppCompatActivity {
                     if(amplitude > AMPLITUDE_THRESHOLD) {
                         if(!off) {
                             off = true;
-                            System.out.println(" >>> Sound detected. '" + activeKeyboardKey + "' (" + count++ + ")");
+                            //System.out.println(" >>> Sound detected. '" + activeKeyboardKey + "' (" + count++ + ")");
                         }
                         for(int i = 0; i < frequencySampleSize; i++)
                             frequencySamples[i] = soundMeter.getFrequencySample(activeKeyboardKey); // Perform FFT
@@ -204,8 +204,8 @@ public class MainActivity extends AppCompatActivity {
 //                            s = Double.valueOf(df.format(s));
 //                            System.out.print(s + "|");
 //                        System.out.println("<");
-                        for(SoundMeter.FrequencySample fs : frequencySamples)
-                                System.out.println("FSweepSize: " + fs.length() + " | " + fs.getProminentFrequency() + "Hz @" + fs.getHighestMagnitude());
+                        //for(SoundMeter.FrequencySample fs : frequencySamples)
+                                //System.out.println("FSweepSize: " + fs.length() + " | " + fs.getProminentFrequency() + "Hz @" + fs.getHighestMagnitude());
                     }else{
                         if(off) {
                             off = false;
@@ -225,7 +225,7 @@ public class MainActivity extends AppCompatActivity {
 
                     Thread.sleep(50);
 
-                    long end = System.currentTimeMillis();
+                   // long end = System.currentTimeMillis();
 
                     //System.out.println("Took : " + ((end - start) / 1000) + " >>> Amp: " + amplitude);
                 }

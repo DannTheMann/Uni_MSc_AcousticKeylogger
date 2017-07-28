@@ -6,6 +6,8 @@ import android.media.MediaRecorder;
 
 import org.jtransforms.fft.DoubleFFT_1D;
 
+import java.util.ArrayList;
+
 /**
  * Class borrows functionality from - https://stackoverflow.com/questions/38033068/android-audiorecord-wont-initialize
  */
@@ -24,9 +26,9 @@ public class SoundMeter {
     public SoundMeter(){
         int tempMinSize = AudioRecord.getMinBufferSize(RECORD_SAMPLE_RATE, RECORD_FORMAT, RECORD_PCM);
         if(tempMinSize < 256) {
-            minSize = 256;
+            minSize = RECORD_SAMPLE_RATE;
         }else{
-            minSize = tempMinSize;
+            minSize = RECORD_SAMPLE_RATE;
         }
         frequencySweep = new double[minSize];
     }
@@ -50,16 +52,91 @@ public class SoundMeter {
         return false;
     }
 
+    public short[] sample(){
+        short[] buffer = new short[minSize];
+        ar.read(buffer, 0, minSize);
+        return buffer;
+    }
+
+    private int[] sampleAbsolute() {
+        short[] buffer = sample();
+        int[] absoluteBuffer = new int[buffer.length];
+        /* Copy every value from the sample but remove their signed bit */
+        for(int i = 0; i < buffer.length; i++){
+            absoluteBuffer[i] = Math.abs(buffer[i]);
+        }
+        return absoluteBuffer;
+    }
+
+
+    /* Sample in 20 as described as so.
+    *
+    * Assuming we sample at 44.1KHz but our initial buffer holds 4096 values then we must
+    *
+    * Normally 44.1KHz / 1000 would be 44.1 samples per millisecond with 220.5 referring to
+    * 5ms, however we must adjust for the buffer size.
+    *
+    * Buffer in this case allows that we hold 1 sample in 1 index at the cost of 11 samples as
+    * follows:
+    *
+    *   44100 / 4096 = ~11.
+    *
+    * Therefore 220 / 11 = 20 and as such are samples within 5 milliseconds are within the indice
+    * of 20 not 220.
+    * */
+    private final int samplesIn5ms = 205;
+    private final int minimumAmp = 2500;
+
+    public AmplitudeSample sampleAudio(){
+
+        int[] amps = sampleAbsolute();
+
+        final ArrayList<Integer> peaks = new ArrayList<>();
+
+        int candidate = -1;
+        int maxAmp = Integer.MIN_VALUE;
+
+        /* While we still have peaks above the minimum amplitude */
+        while(true) {
+
+            for (int i = 0; i < amps.length; i++) {
+
+                /* For every peak recorded */
+                for (int peak : peaks) {
+                    /* If we've recorded this peak then skip
+                        over the entire subsample by n places */
+                    if (i == (peak - samplesIn5ms)) {
+                        i += 2 * samplesIn5ms;
+                    }
+                }
+
+                /* Whether the current indexed amplitude exceeds the known maximum */
+                if (amps[i] > maxAmp) {
+                    candidate = i; // Update indice
+                    maxAmp = amps[i]; // Update max amp
+                }
+            }
+
+            /* If we've yet to exhausted all subsamples within a 10ms gap of one another */
+            if (maxAmp > minimumAmp) {
+                peaks.add(candidate);
+            } else {
+                break;
+            }
+
+        }
+
+        return new AmplitudeSample(amps, peaks);
+
+    }
 
     public boolean isRunning() {
         return running;
     }
 
 
-    public double getAmplitude() {
-        short[] buffer = new short[minSize];
-        //System.out.println("Reading in (Size: " + minSize +" )");
-        ar.read(buffer, 0, minSize);
+    public double getHighestAmplitude() {
+        short[] buffer = sample();
         int max = 0;
         for (short s : buffer)
         {
@@ -71,33 +148,45 @@ public class SoundMeter {
         return max;
     }
 
-    private final int fourierSize = 256;
-
     /**
      * Retrieves a Frequency Domain Sweep of the microphone.
      * @return Array of frequency intensity
      */
     public FrequencySample getFrequencySample(String key){
 
-        frequencySweep = new double[fourierSize];
+        frequencySweep = new double[minSize];
 
-        short[] buffer = new short[fourierSize];
+        short[] buffer = sample();
         // reads in a continous set of samples into the buffer
 
-        long start = System.currentTimeMillis();
-        int bufferReadResult = ar.read(buffer, 0, fourierSize);
-        long end = System.currentTimeMillis();
-        System.out.println("Took: " + ((end - start)));
-
-        for (int i = 0; i < minSize && i < bufferReadResult; i++) {
+        for (int i = 0; i < minSize; i++) {
             frequencySweep[i] = (double) buffer[i];// / 32768.0; // signed 16bit
         }
 
-        DoubleFFT_1D fft = new DoubleFFT_1D(fourierSize);
+        DoubleFFT_1D fft = new DoubleFFT_1D(minSize);
 
         fft.realForward(frequencySweep);
 
         return new FrequencySample(frequencySweep, key);
+    }
+
+    public class AmplitudeSample{
+
+        public ArrayList<Integer> peaks;
+        public int[] amplitudes;
+
+        public AmplitudeSample(int[] amps, ArrayList<Integer> peaks) {
+            this.amplitudes = amps;
+            this.peaks = peaks;
+        }
+
+        public ArrayList<Integer> getPeaks(){
+            return this.peaks;
+        }
+
+        public int[] getAmplitudes(){
+            return this.amplitudes;
+        }
     }
 
     public class FrequencySample{
@@ -141,7 +230,7 @@ public class SoundMeter {
 
             /* Calculate the corresponding frequency */
 
-            return (RECORD_SAMPLE_RATE * indexMagnitudeCorrespondence) / fourierSize;
+            return (RECORD_SAMPLE_RATE * indexMagnitudeCorrespondence) / minSize;
         }
 
         public double getHighestMagnitude(){
