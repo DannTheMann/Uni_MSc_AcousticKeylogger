@@ -7,11 +7,13 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
+import android.widget.TextView;
 
 import java.text.DecimalFormat;
 
@@ -29,6 +31,8 @@ public class MainActivity extends AppCompatActivity {
     private static boolean sampling = false; // whether mic is sampling
     private static boolean training = false; // training mode active
 
+
+    private static final String CHARACTER_SELECTED_TEXT = "Selected Character - ";
     public static final String[] keyboardKeys = {"SPACE", "Q", "ENTER", "H", ";"};
     private static String activeKeyboardKey = keyboardKeys[0];
 
@@ -37,7 +41,9 @@ public class MainActivity extends AppCompatActivity {
     public static String getActiveCharacter(){ return activeKeyboardKey; }
 
     private final int CHARACTER_SELECTION_ID = R.id.characterSelection;
+    private final int CURRENT_CHARACTER_SELECTED = R.id.charSelectText;
     private final int TRAINER_MODE_BUTTON = R.id.trainerMode;
+    private final int SAMPLING_BUTTON = R.id.samplingButton;
     private final int PROGRESS_SOUND_VOLUME = R.id.progress;
     private final int PROGRESS_RESULT = R.id.progressResult;
 
@@ -61,6 +67,9 @@ public class MainActivity extends AppCompatActivity {
         /* Add alphabet characters to the spinner, or the characters we define as our alphabet */
         inputCharactersFromAlphabet();
 
+        /* Set character select text */
+        ((TextView)findViewById(CURRENT_CHARACTER_SELECTED)).setText(CHARACTER_SELECTED_TEXT + activeKeyboardKey);
+
         /* Add listeners to buttons on the UI */
         addButtonListeners();
 
@@ -74,23 +83,51 @@ public class MainActivity extends AppCompatActivity {
         System.out.println("Startup finished.");
 
     }
-
     /**
      * Add button listeners
      */
     private void addButtonListeners() {
-        /* training button */
+        /* Training button */
         ((Button)findViewById(TRAINER_MODE_BUTTON)).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 training = !training; // Toggle training
                 if(training) {
-                    activeKeyboardKey = spinner.getSelectedItem().toString(); // Update active key to spinner button
+                    // Enable training...
                     System.out.println("Training mode enabled, selected character is '" + activeKeyboardKey + "'.");
                 }else{
                     System.out.println("Training mode disabled.");
                 }
             }
+        });
+
+        /* Sampling button */
+        ((Button)findViewById(SAMPLING_BUTTON)).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                sampling = !sampling; // Toggle sampling
+                if(sampling) {
+                    System.out.println("Sampling enabled.");
+                }else{
+                    System.out.println("Sampling disabled.");
+                }
+            }
+        });
+
+        /* Character spinner, used for training characters */
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                System.out.println("Changed spinner item (pos: " + position + " | id: " + id +"): " +  spinner.getItemAtPosition(position).toString());
+                activeKeyboardKey = spinner.getSelectedItem().toString(); // Update active key to spinner button
+                ((TextView)findViewById(CURRENT_CHARACTER_SELECTED)).setText(CHARACTER_SELECTED_TEXT + activeKeyboardKey);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parentView) {
+                return; // not needed
+            }
+
         });
     }
 
@@ -116,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
 
         // subject to change values
         private int progress;
-        private final int AMPLITUDE_THRESHOLD = 1000;
+        private final int AMPLITUDE_THRESHOLD = 2000;
         private double amplitude;
 
         public UpdateProgress(SoundMeter sm, String key) {
@@ -132,30 +169,47 @@ public class MainActivity extends AppCompatActivity {
 
             try {
                 soundMeter.start();
-
+                boolean off = true;
+                int count = 0;
                 while (true) {
+
+                    if(!sampling){
+                        Thread.sleep(500); // If not sampling, then sleep
+                        continue;
+                    }
 
                     long start = System.currentTimeMillis();
 
                     amplitude = soundMeter.getAmplitude();
                     progress = (int) ((amplitude / 32768) * 100); // Value out of 100
-                    double[] frequencySweep = null;
+                    int frequencySampleSize = 1;
+
+                    SoundMeter.FrequencySample[] frequencySamples = new SoundMeter.FrequencySample[frequencySampleSize];
 
                     if(amplitude > AMPLITUDE_THRESHOLD) {
-                        frequencySweep = soundMeter.getFrequencyDomain(); // Perform FFT
+                        if(!off) {
+                            off = true;
+                            System.out.println(" >>> Sound detected. '" + activeKeyboardKey + "' (" + count++ + ")");
+                        }
+                        for(int i = 0; i < frequencySampleSize; i++)
+                            frequencySamples[i] = soundMeter.getFrequencySample(activeKeyboardKey); // Perform FFT
                         //                    System.out.println("Amplitude: " + amp);
                         //                    System.out.println("Amplitude accelerometerSensor %: " + ((amp/32768)*100));
 
-                        System.out.print(">");
-                        for (double s : frequencySweep) {
-                            if (s < 0)
-                                continue;
-                            DecimalFormat df = new DecimalFormat("#.###");
-                            s = Double.valueOf(df.format(s));
-                            System.out.print(s + "|");
+//                        System.out.print(">");
+//                        for (double s : frequencySample.getFrequencySweep()) {
+//                            if (s < 0)
+//                                continue;
+//                            DecimalFormat df = new Decima    lFormat("#.###");
+//                            s = Double.valueOf(df.format(s));
+//                            System.out.print(s + "|");
+//                        System.out.println("<");
+                        for(SoundMeter.FrequencySample fs : frequencySamples)
+                                System.out.println("FSweepSize: " + fs.length() + " | " + fs.getProminentFrequency() + "Hz @" + fs.getHighestMagnitude());
+                    }else{
+                        if(off) {
+                            off = false;
                         }
-                        System.out.println("<");
-                        System.out.print("FSweepSize: " + frequencySweep.length + " | ");
                     }
 
                     /* Update user interface components on the main thread */
@@ -169,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
 
-                    Thread.sleep(10);
+                    Thread.sleep(50);
 
                     long end = System.currentTimeMillis();
 

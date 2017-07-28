@@ -49,8 +49,8 @@
         android:layout_height="wrap_content"
         android:text="Training Mode"
         android:textSize="24sp"
-        android:layout_marginLeft="27dp"
-        android:layout_marginStart="27dp"
+        android:layout_marginLeft="26dp"
+        android:layout_marginStart="26dp"
         android:layout_alignBaseline="@+id/trainerMode"
         android:layout_alignBottom="@+id/trainerMode"
         android:layout_alignParentLeft="true"
@@ -76,5 +76,40 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentRight="true"
         android:layout_alignParentStart="true" />
+
+    <ToggleButton
+        android:id="@+id/samplingButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/trainerMode"
+        android:layout_alignStart="@+id/trainerMode"
+        android:layout_below="@+id/trainerMode"
+        android:layout_marginTop="10dp"
+        android:checked="true"
+        android:text="ToggleButton" />
+
+    <TextView
+        android:id="@+id/samplingButtonText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Sampling"
+        android:textSize="24sp"
+        android:layout_alignBaseline="@+id/samplingButton"
+        android:layout_alignBottom="@+id/samplingButton"
+        android:layout_alignLeft="@+id/traingingModeText"
+        android:layout_alignStart="@+id/traingingModeText" />
+
+    <TextView
+        android:id="@+id/charSelectText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignEnd="@+id/characterSelection"
+        android:layout_alignLeft="@+id/characterText"
+        android:layout_alignParentTop="true"
+        android:layout_alignRight="@+id/characterSelection"
+        android:layout_alignStart="@+id/characterText"
+        android:layout_marginTop="22dp"
+        android:text="Selected Character - "
+        android:textSize="30sp" />
 
 </RelativeLayout>
