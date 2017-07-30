@@ -153,7 +153,6 @@ public class MainActivity extends AppCompatActivity {
 
         // subject to change values
         private int progress;
-        private final int AMPLITUDE_THRESHOLD = 2000;
         private double amplitude;
 
         public UpdateProgress(SoundMeter sm, String key) {
@@ -178,39 +177,21 @@ public class MainActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    //SoundMeter.AmplitudeSample amplitudeSample = soundMeter.sampleAudio();
+                    SoundMeter.AmplitudeSample amplitudeSample = soundMeter.sampleAudio();
 
-                    amplitude = soundMeter.getHighestAmplitude();
-                    progress = (int) ((amplitude / 32768) * 100); // Value out of 100
-                    int frequencySampleSize = 1;
+                    amplitude = amplitudeSample.getHighestAmplitude();
 
-                    SoundMeter.FrequencySample[] frequencySamples = new SoundMeter.FrequencySample[frequencySampleSize];
-
-                    if(amplitude > AMPLITUDE_THRESHOLD) {
-                        if(!off) {
-                            off = true;
-                            //System.out.println(" >>> Sound detected. '" + activeKeyboardKey + "' (" + count++ + ")");
-                        }
-                        for(int i = 0; i < frequencySampleSize; i++)
-                            frequencySamples[i] = soundMeter.getFrequencySample(activeKeyboardKey); // Perform FFT
-                        //                    System.out.println("Amplitude: " + amp);
-                        //                    System.out.println("Amplitude accelerometerSensor %: " + ((amp/32768)*100));
-
-//                        System.out.print(">");
-//                        for (double s : frequencySample.getFrequencySweep()) {
-//                            if (s < 0)
-//                                continue;
-//                            DecimalFormat df = new Decima    lFormat("#.###");
-//                            s = Double.valueOf(df.format(s));
-//                            System.out.print(s + "|");
-//                        System.out.println("<");
-                        //for(SoundMeter.FrequencySample fs : frequencySamples)
-                                //System.out.println("FSweepSize: " + fs.length() + " | " + fs.getProminentFrequency() + "Hz @" + fs.getHighestMagnitude());
-                    }else{
-                        if(off) {
-                            off = false;
+                    /* There has been some noise detected */
+                    if(amplitudeSample.getPeaks().size() > 0){
+                        System.out.println("Peaks: " + amplitudeSample.getPeaks().size() + " | " + amplitudeSample.getAmplitudes().length);
+                        for(int fftpeak : amplitudeSample.getFFTPeaks()){
+                            System.out.println(" >>> " + fftpeak);
                         }
                     }
+
+                    //amplitude = soundMeter.getHighestAmplitude();
+                    progress = (int) ((amplitude / 32768) * 100); // Value out of 100
+
 
                     /* Update user interface components on the main thread */
                     runOnUiThread(new Runnable() {
@@ -223,7 +204,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
 
-                    Thread.sleep(50);
+                    //Thread.sleep(50);
 
                    // long end = System.currentTimeMillis();
 
