@@ -26,9 +26,9 @@ public class SoundMeter {
     public SoundMeter(){
         int tempMinSize = AudioRecord.getMinBufferSize(RECORD_SAMPLE_RATE, RECORD_FORMAT, RECORD_PCM);
         if(tempMinSize < 256) {
-            minSize = RECORD_SAMPLE_RATE;
+            minSize = 44100;
         }else{
-            minSize = RECORD_SAMPLE_RATE;
+            minSize = 44100;
         }
         frequencySweep = new double[minSize];
         audioRecord = new AudioRecord(RECORD_AUDIO_SOURCE, RECORD_SAMPLE_RATE, RECORD_FORMAT, RECORD_PCM, minSize);
@@ -98,10 +98,16 @@ public class SoundMeter {
     * Therefore 220 / 11 = 20 and as such are samples within 5 milliseconds are within the indice
     * of 20 not 220.
     * */
-    private final int samplesIn5ms = 3000;
-    private final int minimumAmp = 3000;
+    private final int samplesIn5ms = 220;
+    private final int minimumAmp = 2500;
 
-    public AmplitudeSample sampleAudio(){
+    public AudioSample sampleAudio(){
+
+        return new AudioSample(sampleDouble());
+
+    }
+
+    public AmplitudeSample sampleAmplitude(final String key){
 
         double[] amps = sampleDouble();
         int c = 0;
@@ -126,20 +132,6 @@ public class SoundMeter {
                     break;
                 }
 
-//                /* For every peak recorded */
-//                for (int peak : peaks) {
-//                    /* If we've recorded this peak then skip
-//                        over the entire subsample by n places */
-//                    if (i == (peak - samplesIn5ms)) {
-//                        i += (3 * samplesIn5ms);
-//                        for (int innerPeak : peaks) {
-//                            if(i == innerPeak){
-//                                break;
-//                            }
-//                        }
-//                    }
-//                }
-
                 /* Whether the current indexed amplitude exceeds the known maximum */
                 if (Math.abs(amps[i]) > maxAmp) {
                     candidate = i; // Update indice
@@ -161,7 +153,7 @@ public class SoundMeter {
 
         //System.out.println("Function returning.");
 
-        return new AmplitudeSample(amps, peaks);
+        return new AmplitudeSample(amps, peaks, key);
 
     }
 
@@ -179,25 +171,11 @@ public class SoundMeter {
         return recording;
     }
 
-
-    public double getHighestAmplitude() {
-        short[] buffer = sample();
-        int max = 0;
-        for (short s : buffer)
-        {
-            if (Math.abs(s) > max)
-            {
-                max = Math.abs(s);
-            }
-        }
-        return max;
-    }
-
     /**
      * Retrieves a Frequency Domain Sweep of the microphone.
      * @return Array of frequency intensity
      */
-    public FrequencySample getFrequencySample(String key){
+    public FrequencySample getFrequencySample(){
 
         frequencySweep = new double[minSize];
 
@@ -212,59 +190,18 @@ public class SoundMeter {
 
         fft.realForward(frequencySweep);
 
-        return new FrequencySample(frequencySweep, key);
+        return new FrequencySample(frequencySweep);
     }
 
-    public class AmplitudeSample{
+    public class AudioSample{
 
-        public final ArrayList<FrequencySample> frequencyPeaks;
-        public final ArrayList<Integer> peaks;
-        public final double[] amplitudes;
+        private final double[] amplitudes;
+        private int frequencyIndex;
+        private double highestFrequency;
+        private double[] frequencyDomain;
 
-        public AmplitudeSample(double[] amps, ArrayList<Integer> peaks) {
+        public AudioSample(double[] amps){
             this.amplitudes = amps;
-            this.peaks = peaks;
-            this.frequencyPeaks = new ArrayList<>();
-        }
-
-        public ArrayList<Integer> getPeaks(){
-            return this.peaks;
-        }
-
-        public double[] getAmplitudes(){
-            return this.amplitudes;
-        }
-
-        public int[] getFFTPeaks(){
-
-            int[] fftPeaks = new int[peaks.size()];
-            double[] frequencySweep;
-            DoubleFFT_1D fft = new DoubleFFT_1D(samplesIn5ms*2);
-
-            for(int i = 0; i < fftPeaks.length; i++){
-
-                frequencySweep = new double[samplesIn5ms*2];
-
-                int peak = peaks.get(0);
-
-                for(int k = 0,j = (peak-samplesIn5ms < 0) ? 0 : peak-samplesIn5ms;
-                    (peak+samplesIn5ms >= amplitudes.length) ? j < amplitudes.length : j < peak+samplesIn5ms;
-                    j++, k++){
-                    //System.out.print(amplitudes[j] + ", ");
-                    frequencySweep[k] = amplitudes[j];
-                }
-
-                fft.realForward(frequencySweep);
-
-                FrequencySample frequencySample = new FrequencySample(frequencySweep);
-
-                frequencyPeaks.add(frequencySample);
-
-                fftPeaks[i] = frequencySample.getProminentFrequency();
-            }
-
-            return fftPeaks;
-
         }
 
         public int getHighestAmplitude() {
@@ -279,46 +216,148 @@ public class SoundMeter {
             return (int) max;
         }
 
-        public ArrayList<FrequencySample> getFrequencySamples(){
+        public void parseFFT(){
+
+            frequencyDomain = amplitudes;
+            DoubleFFT_1D fft = new DoubleFFT_1D(minSize);
+            fft.realForward(frequencyDomain);
+
+            /**
+             * Magnitude = sqrt(re*re + im*im)
+             *
+             * re = Real component at 2*m
+             * im = Imaginary component 2*m+1
+             * m = index of array
+             */
+
+            double temporaryMagnitude = 0.0;
+            highestFrequency = 0.0;
+            frequencyIndex = 0;
+
+            /* Iterate over the size of the transform data (-1 to avoid out of bounds) */
+            for(int i = 0; i < (frequencyDomain.length/2)-1; i++){
+                double real = frequencyDomain[2*i]; // real component
+                double imaginary = frequencyDomain[(2*i)+1]; // imaginary component
+                temporaryMagnitude = Math.sqrt( (real*real) + (imaginary*imaginary));
+                if(temporaryMagnitude > highestFrequency){
+                    highestFrequency = temporaryMagnitude;
+                    frequencyIndex = i;
+                }
+            }
+
+        }
+
+
+
+        public int prominentFrequency(){
+
+            /**
+             * Frequency = Fs * i / N
+             *
+             * Fs = sample rate (Hz)
+             * i = index of peak
+             * N = number of points in FFT (1024 in this case)
+             *
+             */
+
+            /* Calculate the corresponding frequency */
+
+            return (RECORD_SAMPLE_RATE * frequencyIndex) / minSize;
+        }
+
+    }
+
+    public class AmplitudeSample{
+
+        public final FrequencySample[] frequencyPeaks;
+        public final ArrayList<Integer> peaks;
+        public final double[] amplitudes;
+        private final String key;
+
+        public AmplitudeSample(double[] amps, ArrayList<Integer> peaks, String key) {
+            this.amplitudes = amps;
+            this.peaks = peaks;
+            this.frequencyPeaks = new FrequencySample[peaks.size()];
+            this.key = key;
+        }
+
+        public String getKey() { return key; }
+
+        public ArrayList<Integer> getPeaks(){
+            return this.peaks;
+        }
+
+        public double[] getAmplitudes(){
+            return this.amplitudes;
+        }
+
+        /**
+         * Performs a FFT across all peaks found in the
+         * amplitude sample via a measurement of 'samplesIn5ms'.
+         */
+        public void parsePeaksFFT(){
+
+            double[] frequencySweep;
+            DoubleFFT_1D fft = new DoubleFFT_1D(samplesIn5ms*2);
+
+            for(int i = 0; i < peaks.size(); i++){
+
+                frequencySweep = new double[samplesIn5ms*2];
+
+                int peak = peaks.get(i);
+
+                for(int k = 0,j = (peak-samplesIn5ms < 0) ? 0 : peak-samplesIn5ms;
+                    (peak+samplesIn5ms >= amplitudes.length) ? j < amplitudes.length : j < peak+samplesIn5ms;
+                    j++, k++){
+                    //System.out.print(amplitudes[j] + ", ");
+                    frequencySweep[k] = amplitudes[j];
+                }
+
+                fft.realForward(frequencySweep);
+
+                FrequencySample frequencySample = new FrequencySample(frequencySweep);
+
+                frequencyPeaks[i] = frequencySample;
+            }
+
+        }
+
+        /**
+         * Get the highest amplitude of this amplitude sample
+         * @return highest found amplitude
+         */
+        public int getHighestAmplitude() {
+            double max = 0;
+            for (double s : amplitudes)
+            {
+                if (Math.abs(s) > max)
+                {
+                    max = Math.abs(s);
+                }
+            }
+            return (int) max;
+        }
+
+        public FrequencySample[] getFrequencySamples(){
             return frequencyPeaks;
         }
     }
 
-    private static int nextId;
-
     public class FrequencySample{
 
-        private final int id;
         private final double[] fourierTransformedData;
-        private final String key;
         private double highestMagnitude;
         // Corresponding index in the fourier array to the highest magnitude
         private int indexMagnitudeCorrespondence;
 
-        public int getId(){ return id; }
-
         public FrequencySample(final double[] fourierTransformedData){
-            this.id = nextId++;
             this.fourierTransformedData = fourierTransformedData;
-            this.key = "N/A";
-            // Set highestMagnitude and index of such
-            highestMagnitude();
-        }
-
-        public FrequencySample(final double[] fourierTransformedData, final String key){
-            this.id = nextId++;
-            this.fourierTransformedData = fourierTransformedData;
-            this.key = key;
             // Set highestMagnitude and index of such
             highestMagnitude();
         }
 
         public double[] getFrequencySweep(){
             return this.fourierTransformedData;
-        }
-
-        public String getKey(){
-            return this.key;
         }
 
         public int length(){
@@ -338,7 +377,7 @@ public class SoundMeter {
 
             /* Calculate the corresponding frequency */
 
-            return (RECORD_SAMPLE_RATE * indexMagnitudeCorrespondence) / minSize;
+            return (RECORD_SAMPLE_RATE * indexMagnitudeCorrespondence) / this.fourierTransformedData.length;
         }
 
         public double getHighestMagnitude(){

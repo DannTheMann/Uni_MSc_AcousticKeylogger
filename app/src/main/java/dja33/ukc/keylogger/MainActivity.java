@@ -15,37 +15,44 @@ import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.HashMap;
+
+import dja33.ukc.keylogger.sample.KeyHandler;
 
 public class MainActivity extends AppCompatActivity {
 
-    private FileHandler fileHandler;
     private SoundMeter soundMeter;
     private Thread smRun; // Thread to control the SoundMeter
+    private KeyHandler keyHandler; // Data to handle learning of the keys
 
+    // --------------
+    /* UI ELEMENTS */
+    // --------------
     private AccelerometerSensor accelerometerSensor; // AccelerometerSensor handler class
     private SensorManager senSensorManager; // SensorManager handler
-    private Sensor senAccelerometer;
+    private Sensor senAccelerometer; // Accelerometer handler
     private Spinner spinner; // Displays all keyboard keys
 
-    private static boolean sampling = false; // whether mic is sampling
-    private static boolean training = false; // training mode active
-
-
-    private static final String CHARACTER_SELECTED_TEXT = "Selected Character - ";
-    public static final String[] keyboardKeys = {"SPACE", "Q", "ENTER", "H", ";"};
-    private static String activeKeyboardKey = keyboardKeys[0];
-
-    public static boolean isSampling() { return sampling; }
-    public static boolean isTraining() { return training; }
-    public static String getActiveCharacter(){ return activeKeyboardKey; }
-
+    /* ID selections */
     private final int CHARACTER_SELECTION_ID = R.id.characterSelection;
     private final int CURRENT_CHARACTER_SELECTED = R.id.charSelectText;
     private final int TRAINER_MODE_BUTTON = R.id.trainerMode;
     private final int SAMPLING_BUTTON = R.id.samplingButton;
     private final int PROGRESS_SOUND_VOLUME = R.id.progress;
     private final int PROGRESS_RESULT = R.id.progressResult;
+    // ------------------
+    /* END UI ELEMENTS */
+    // ------------------
+
+    private static boolean sampling = false; // whether mic is sampling
+    private static boolean training = false; // training mode active
+    public static boolean isSampling() { return sampling; }
+    public static boolean isTraining() { return training; }
+
+    private static final String CHARACTER_SELECTED_TEXT = "Selected Character - ";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,11 +61,11 @@ public class MainActivity extends AppCompatActivity {
 //        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
 //        setSupportActionBar(toolbar);
 
-        fileHandler = new FileHandler(Environment.getExternalStorageDirectory().getAbsolutePath(), "data.csv", getApplicationContext());
+        keyHandler = new KeyHandler(getFilesDir().getAbsolutePath());
         soundMeter = new SoundMeter();
         spinner = (Spinner) findViewById(CHARACTER_SELECTION_ID);
 
-        accelerometerSensor = new AccelerometerSensor();
+        //accelerometerSensor = new AccelerometerSensor();
 
         senSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         senAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -68,20 +75,25 @@ public class MainActivity extends AppCompatActivity {
         inputCharactersFromAlphabet();
 
         /* Set character select text */
-        ((TextView)findViewById(CURRENT_CHARACTER_SELECTED)).setText(CHARACTER_SELECTED_TEXT + activeKeyboardKey);
+        ((TextView)findViewById(CURRENT_CHARACTER_SELECTED)).setText(CHARACTER_SELECTED_TEXT + keyHandler.getActiveKey());
 
         /* Add listeners to buttons on the UI */
         addButtonListeners();
 
         /* Will update the UI based on the sound meters finding */
-        UpdateProgress up = new UpdateProgress(soundMeter, spinner.getSelectedItem().toString());
-        smRun = new Thread(up);
-        smRun.start();
+        //UpdateProgress up = new UpdateProgress(soundMeter, spinner.getSelectedItem().toString());
+        //smRun = new Thread(up);
+        //smRun.start();
 
         sampling = true;
-
         System.out.println("Startup finished.");
 
+    }
+
+    @Override
+    protected void onStop() {
+        System.out.println("Stopping...");
+        super.onStop();
     }
     /**
      * Add button listeners
@@ -94,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
                 training = !training; // Toggle training
                 if(training) {
                     // Enable training...
-                    System.out.println("Training mode enabled, selected character is '" + activeKeyboardKey + "'.");
+                    System.out.println("Training mode enabled, selected character is '" + keyHandler.getActiveKey() + "'.");
                 }else{
                     System.out.println("Training mode disabled.");
                 }
@@ -119,8 +131,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
                 System.out.println("Changed spinner item (pos: " + position + " | id: " + id +"): " +  spinner.getItemAtPosition(position).toString());
-                activeKeyboardKey = spinner.getSelectedItem().toString(); // Update active key to spinner button
-                ((TextView)findViewById(CURRENT_CHARACTER_SELECTED)).setText(CHARACTER_SELECTED_TEXT + activeKeyboardKey);
+                keyHandler.setActiveKey(spinner.getSelectedItem().toString()); // Update active key to spinner button
+                ((TextView)findViewById(CURRENT_CHARACTER_SELECTED)).setText(CHARACTER_SELECTED_TEXT + keyHandler.getActiveKey());
             }
 
             @Override
@@ -133,8 +145,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void inputCharactersFromAlphabet() {
         try {
-
-            ArrayAdapter<String> spinnerItems = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, keyboardKeys);
+            ArrayAdapter<String> spinnerItems = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, keyHandler.getKeys());
             spinner.setAdapter(spinnerItems);
         }catch(Exception e){
             e.printStackTrace();
@@ -177,21 +188,22 @@ public class MainActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    SoundMeter.AmplitudeSample amplitudeSample = soundMeter.sampleAudio();
+                    SoundMeter.AmplitudeSample amplitudeSample = soundMeter.sampleAmplitude(keyHandler.getActiveKey());
 
                     amplitude = amplitudeSample.getHighestAmplitude();
 
                     /* There has been some noise detected */
                     if(amplitudeSample.getPeaks().size() > 0){
+                        amplitudeSample.parsePeaksFFT(); // Perform FFT on subsamples
                         System.out.println("Peaks: " + amplitudeSample.getPeaks().size() + " | " + amplitudeSample.getAmplitudes().length);
-                        for(int fftpeak : amplitudeSample.getFFTPeaks()){
-                            System.out.println(" >>> " + fftpeak);
+                        for(SoundMeter.FrequencySample fs : amplitudeSample.getFrequencySamples()){
+                            System.out.println(" >>> " + fs.getProminentFrequency() + " | " + fs.getHighestMagnitude());
                         }
+                        keyHandler.addSampleData(amplitudeSample);
                     }
 
                     //amplitude = soundMeter.getHighestAmplitude();
                     progress = (int) ((amplitude / 32768) * 100); // Value out of 100
-
 
                     /* Update user interface components on the main thread */
                     runOnUiThread(new Runnable() {
