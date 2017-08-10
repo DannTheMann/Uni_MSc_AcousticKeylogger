@@ -21,6 +21,7 @@ import java.text.DecimalFormat;
 import java.util.HashMap;
 
 import dja33.ukc.keylogger.sample.KeyHandler;
+import dja33.ukc.keylogger.sample.KeySample;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -29,11 +30,18 @@ public class MainActivity extends AppCompatActivity {
     private KeyHandler keyHandler; // Data to handle learning of the keys
 
     // --------------
-    /* UI ELEMENTS */
+    /* SENSOR COMP */
     // --------------
-    private AccelerometerSensor accelerometerSensor; // AccelerometerSensor handler class
+    //private AccelerometerSensor accelerometerSensor; // AccelerometerSensor handler class
     private SensorManager senSensorManager; // SensorManager handler
     private Sensor senAccelerometer; // Accelerometer handler
+    // ------------------
+    /* END SENSOR COMP */
+    // ------------------
+
+    // --------------
+    /* UI ELEMENTS */
+    // --------------
     private Spinner spinner; // Displays all keyboard keys
 
     /* ID selections */
@@ -43,6 +51,11 @@ public class MainActivity extends AppCompatActivity {
     private final int SAMPLING_BUTTON = R.id.samplingButton;
     private final int PROGRESS_SOUND_VOLUME = R.id.progress;
     private final int PROGRESS_RESULT = R.id.progressResult;
+    private final int CLEAR_ALL = R.id.clearAll;
+    private final int CLEAR_CURRENT_CHAR = R.id.clearCurrent;
+    private final int READ_ALL = R.id.readAll;
+    private final int READ_CURRENT_CHAR = R.id.readCurrent;
+    private final int SAVE_ALL = R.id.save;
     // ------------------
     /* END UI ELEMENTS */
     // ------------------
@@ -65,11 +78,9 @@ public class MainActivity extends AppCompatActivity {
         soundMeter = new SoundMeter();
         spinner = (Spinner) findViewById(CHARACTER_SELECTION_ID);
 
-        //accelerometerSensor = new AccelerometerSensor();
-
-        senSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        senAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        senSensorManager.registerListener(accelerometerSensor, senAccelerometer , SensorManager.SENSOR_DELAY_NORMAL);
+        //senSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        //senAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        //senSensorManager.registerListener(accelerometerSensor, senAccelerometer , SensorManager.SENSOR_DELAY_NORMAL);
 
         /* Add alphabet characters to the spinner, or the characters we define as our alphabet */
         inputCharactersFromAlphabet();
@@ -81,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
         addButtonListeners();
 
         /* Will update the UI based on the sound meters finding */
-        //UpdateProgress up = new UpdateProgress(soundMeter, spinner.getSelectedItem().toString());
+        UpdateProgress up = new UpdateProgress(soundMeter, spinner.getSelectedItem().toString());
         //smRun = new Thread(up);
         //smRun.start();
 
@@ -93,12 +104,71 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         System.out.println("Stopping...");
+        keyHandler.saveAllKeys();
+        sampling = false;
+        training = false;
+        soundMeter.stop();
         super.onStop();
     }
     /**
      * Add button listeners
      */
     private void addButtonListeners() {
+        /* Read all key samples button */
+        ((Button)findViewById(READ_ALL)).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                for(KeySample ks : keyHandler.getAllKeys()){
+                    System.out.format("Key ('%s') reading - %2.fHz | %4.f.\n",
+                            ks.getKey(),
+                            ks.getAverageFrequency(),
+                            ks.getAverageMagnitude()
+                    );
+                }
+            }
+        });
+
+        /* Read current character key sample button */
+        ((Button)findViewById(READ_CURRENT_CHAR)).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                System.out.format("[ACTIVE] Key ('%s') reading - %2.fHz | %4.f.\n",
+                        keyHandler.getActiveKey().getKey(),
+                        keyHandler.getActiveKey().getAverageFrequency(),
+                        keyHandler.getActiveKey().getAverageMagnitude()
+                );
+            }
+        });
+
+        /* Clear all key samples button */
+        ((Button)findViewById(CLEAR_ALL)).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                for(KeySample ks : keyHandler.getAllKeys()){
+                    System.out.format("Reset key sample '%s'.\n", keyHandler.getActiveKey().getKey());
+                    ks.reset();
+                }
+            }
+        });
+
+        /* Clear current character key sample button */
+        ((Button)findViewById(CLEAR_CURRENT_CHAR)).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                System.out.format("Reset active key sample '%s'.\n", keyHandler.getActiveKey().getKey());
+                keyHandler.getActiveKey().reset();
+            }
+        });
+
+        /* Save all key samples */
+        ((Button)findViewById(SAVE_ALL)).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                System.out.println("Saved all key samples.");
+                keyHandler.saveAllKeys();
+            }
+        });
+
         /* Training button */
         ((Button)findViewById(TRAINER_MODE_BUTTON)).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -130,7 +200,6 @@ public class MainActivity extends AppCompatActivity {
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-                System.out.println("Changed spinner item (pos: " + position + " | id: " + id +"): " +  spinner.getItemAtPosition(position).toString());
                 keyHandler.setActiveKey(spinner.getSelectedItem().toString()); // Update active key to spinner button
                 ((TextView)findViewById(CURRENT_CHARACTER_SELECTED)).setText(CHARACTER_SELECTED_TEXT + keyHandler.getActiveKey());
             }
@@ -188,7 +257,7 @@ public class MainActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    SoundMeter.AmplitudeSample amplitudeSample = soundMeter.sampleAmplitude(keyHandler.getActiveKey());
+                    SoundMeter.AmplitudeSample amplitudeSample = soundMeter.sampleAmplitude(keyHandler.getActiveKey().getKey());
 
                     amplitude = amplitudeSample.getHighestAmplitude();
 
@@ -199,7 +268,7 @@ public class MainActivity extends AppCompatActivity {
                         for(SoundMeter.FrequencySample fs : amplitudeSample.getFrequencySamples()){
                             System.out.println(" >>> " + fs.getProminentFrequency() + " | " + fs.getHighestMagnitude());
                         }
-                        keyHandler.addSampleData(amplitudeSample);
+                        keyHandler.addSampleData(amplitudeSample, true);
                     }
 
                     //amplitude = soundMeter.getHighestAmplitude();

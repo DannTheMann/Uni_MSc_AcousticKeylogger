@@ -24,7 +24,11 @@ public class KeySample implements Serializable {
         frequency = new Average();
     }
 
-    public void update(final SoundMeter.AmplitudeSample sample) {
+    public String getKey(){
+        return this.key;
+    }
+
+    protected void update(final SoundMeter.AmplitudeSample sample) {
 
         for(SoundMeter.FrequencySample fs : sample.getFrequencySamples()){
             magnitude.update(fs.getHighestMagnitude());
@@ -39,6 +43,11 @@ public class KeySample implements Serializable {
 
     public double getAverageMagnitude(){
         return magnitude.avg();
+    }
+
+    public void reset() {
+        magnitude = new Average();
+        frequency = new Average();
     }
 
     private class Average implements Serializable{

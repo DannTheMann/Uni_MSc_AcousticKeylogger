@@ -7,7 +7,10 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.security.Key;
+import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import dja33.ukc.keylogger.SoundMeter;
@@ -16,7 +19,7 @@ import dja33.ukc.keylogger.SoundMeter;
  * Created by Dante on 26/02/2017.
  */
 
-public class KeyHandler implements Serializable{
+public class KeyHandler{
 
     private final String DIRECTORY;
 
@@ -25,24 +28,24 @@ public class KeyHandler implements Serializable{
     // Set of all keys we're sampling for
     private final String[] keySamples = {"SPACE", "Q", "ENTER", "H", ";"};
 
-    private transient String activeKey;
+    private KeySample activeKey;
 
     public KeyHandler(String dir){
 
         this.DIRECTORY = dir;
-        activeKey = keySamples[0];
         loadKeySamples();
+        activeKey = keystrokeSamples.firstEntry().getValue();
 
     }
 
     private void loadKeySamples(){
 
         for(String key : keySamples){
-            System.out.println("Loading '" + key + "'.ser");
+            System.out.format("Loading '%s'.ser\n", key);
             try {
                 keystrokeSamples.put(key, loadKeySample(key));
             }catch(Exception e){
-                System.err.println("Failed to load '" + key + "'.");
+                System.err.format("Failed to load '%s'.\n", key);
                 e.printStackTrace();
             }
         }
@@ -55,7 +58,7 @@ public class KeyHandler implements Serializable{
         final String file = DIRECTORY + File.separator + key + ".ser";
 
         if(!new File(file).exists()){
-            System.out.println("File did not exist for this key (" + key + "), creating one.");
+            System.err.format("File did not exist for this key ('%s'), creating one.\n", key);
             return new KeySample(key);
         }
 
@@ -84,7 +87,7 @@ public class KeyHandler implements Serializable{
         final KeySample ks = keystrokeSamples.get(key);
 
         if(ks == null){
-            System.err.println("KeySample for " + key + " was null.");
+            System.err.format("KeySample for '%s' was null.\n", key);
             return false;
         }
 
@@ -109,7 +112,7 @@ public class KeyHandler implements Serializable{
 
     public boolean saveActiveKey(){
 
-        return saveKey(activeKey);
+        return saveKey(activeKey.getKey());
 
     }
 
@@ -140,19 +143,23 @@ public class KeyHandler implements Serializable{
         return keySamples;
     }
 
+    public Collection<KeySample> getAllKeys() { return keystrokeSamples.values(); }
+
+    public int getTotalKeys(){ return keySamples.length; }
+
     /**
      * Set the active key to be trained.
      * @param activeKey key
      */
     public void setActiveKey(String activeKey) {
-        this.activeKey = activeKey;
+        this.activeKey = keystrokeSamples.get(activeKey);
     }
 
     /**
      * Get the current key being trained
      * @return key
      */
-    public String getActiveKey() {
+    public KeySample getActiveKey() {
         return activeKey;
     }
 
@@ -168,6 +175,6 @@ public class KeyHandler implements Serializable{
      * transient fields can be remolded.
      */
     public void prepareTransient() {
-        activeKey = keySamples[0];
+        activeKey = keystrokeSamples.firstEntry().getValue();
     }
 }

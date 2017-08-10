@@ -112,4 +112,53 @@
         android:text="Selected Character - "
         android:textSize="30sp" />
 
+    <Button
+        android:id="@+id/clearAll"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="13dp"
+        android:text="Clear All"
+        android:layout_above="@+id/characterText"
+        android:layout_alignLeft="@+id/characterText"
+        android:layout_alignStart="@+id/characterText" />
+
+    <Button
+        android:id="@+id/clearCurrent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="CLEAR CHAR"
+        android:layout_alignBaseline="@+id/clearAll"
+        android:layout_alignBottom="@+id/clearAll"
+        android:layout_toRightOf="@+id/characterText"
+        android:layout_toEndOf="@+id/characterText" />
+
+    <Button
+        android:id="@+id/save"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SAVE"
+        android:layout_alignBaseline="@+id/clearCurrent"
+        android:layout_alignBottom="@+id/clearCurrent"
+        android:layout_alignLeft="@+id/characterSelection"
+        android:layout_alignStart="@+id/characterSelection" />
+
+    <Button
+        android:id="@+id/readAll"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/samplingButtonText"
+        android:layout_alignStart="@+id/samplingButtonText"
+        android:layout_below="@+id/samplingButton"
+        android:layout_marginTop="14dp"
+        android:text="READ ALL" />
+
+    <Button
+        android:id="@+id/readCurrent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@+id/readAll"
+        android:layout_toEndOf="@+id/characterText"
+        android:layout_toRightOf="@+id/characterText"
+        android:text="READ CHAR" />
+
 </RelativeLayout>
